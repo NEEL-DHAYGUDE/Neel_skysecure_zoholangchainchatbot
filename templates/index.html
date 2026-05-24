@@ -50,10 +50,15 @@
         
         /* Message Bubbles */
         .msg-wrapper { display: flex; flex-direction: column; width: 100%; }
-        .message { max-width: 70%; padding: 14px 18px; font-size: 0.95rem; line-height: 1.5; word-wrap: break-word; }
+        .message { max-width: 75%; padding: 14px 18px; font-size: 0.95rem; line-height: 1.5; word-wrap: break-word; position: relative; }
         .message.user { background: var(--user-bubble); color: white; align-self: flex-end; border-radius: 16px 16px 0 16px; box-shadow: 0 4px 12px rgba(3,105,161,0.3); }
         .message.bot { background: var(--bot-bubble); color: var(--text-light); align-self: flex-start; border-radius: 16px 16px 16px 0; white-space: pre-line; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
         
+        /* Report Export Button style inside chat bubbles */
+        .export-btn-container { margin-top: 10px; display: flex; justify-content: flex-start; }
+        .pdf-btn { background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
+        .pdf-btn:hover { background: #059669; }
+
         /* Control Interface Footer */
         .chat-footer { padding: 20px; background: var(--panel-bg); border-top: 1px solid #334155; }
         .input-group { display: flex; gap: 12px; align-items: center; }
@@ -64,7 +69,6 @@
         .btn { padding: 12px 24px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
         .btn-primary { background: var(--accent-blue); color: white; }
         .btn-primary:hover { background: #0369a1; }
-        .btn-secondary { background: #475569; color: white; }
         .btn-voice { background: #ef4444; color: white; border-radius: 50%; width: 48px; height: 48px; padding: 0; justify-content: center; align-items: center; font-size: 1.2rem; }
         .btn-voice.active { background: #10b981; animation: pulse 1.5s infinite; }
         
@@ -80,6 +84,25 @@
             70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
             100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
+
+        /* ==========================================================
+           PRINT ENGINE MEDIA STYLES (Converts Chat Window to clean PDF)
+           ========================================================== */
+        @media print {
+            body * { visibility: hidden; background: transparent !important; color: black !important; box-shadow: none !important; }
+            .print-target-section, .print-target-section * { visibility: visible; }
+            .print-target-section { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%; 
+                padding: 30px;
+                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                line-height: 1.6;
+            }
+            .pdf-btn, .chat-header, .chat-footer, .sidebar { display: none !important; }
+            h2, h3 { color: #1e293b !important; border-bottom: 2px solid #cbd5e1 !important; padding-bottom: 5px; }
+        }
     </style>
 </head>
 <body>
@@ -90,7 +113,7 @@
 
         function App() {
             const [messages, setMessages] = useState([
-                { sender: 'bot', text: '👋 Welcome back to the Skysecure Managed Services Portal. Securely connected to Zoho Hub. Ask me to pull metrics or stage action mutations.' }
+                { sender: 'bot', text: '👋 Welcome back to the Skysecure Managed Services Portal. Securely connected to Zoho Hub. Ask me to pull metrics, format report documents, or stage action mutations.' }
             ]);
             const [input, setInput] = useState('');
             const [hilWaiting, setHilWaiting] = useState(false);
@@ -133,13 +156,11 @@
                 }
             };
 
-            // Voice Text Synthesis Outbound Reader
             const speakText = (text) => {
                 if ('speechSynthesis' in window) {
-                    window.speechSynthesis.cancel(); // Terminate ongoing streams
-                    const cleanText = text.replace(/[^\w\s,.!?]/g, ''); // Strip markdown chars
+                    window.speechSynthesis.cancel();
+                    const cleanText = text.replace(/[^\w\s,.!?]/g, '');
                     const utterance = new SpeechSynthesisUtterance(cleanText);
-                    utterance.rate = 1.0;
                     window.speechSynthesis.speak(utterance);
                 }
             };
@@ -147,6 +168,17 @@
             useEffect(() => {
                 messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
             }, [messages]);
+
+            // Function to dynamically trigger a clean print save pipeline target window
+            const downloadAsPDF = (elementId) => {
+                const element = document.getElementById(elementId);
+                if (!element) return;
+                
+                // Temporarily flag the bubble for printing view containment isolation rules
+                element.classList.add('print-target-section');
+                window.print();
+                element.classList.remove('print-target-section');
+            };
 
             const handleSend = async (hilOverride = {}) => {
                 let userText = input.trim();
@@ -171,11 +203,19 @@
 
                     const data = await response.json();
                     
-                    setMessages(prev => [...prev, { sender: 'bot', text: data.response }]);
+                    // Identify if the text represents a formatted document overview
+                    const containsDocument = data.response.toLowerCase().includes('document:') || data.response.toLowerCase().includes('**1.');
+
+                    setMessages(prev => [...prev, { 
+                        sender: 'bot', 
+                        text: data.response,
+                        isDocument: containsDocument,
+                        id: `msg_${Date.now()}` 
+                    }]);
+                    
                     setHilWaiting(data.requires_hil);
                     speakText(data.response);
 
-                    // Dynamic Telemetry State simulation extraction for the Sidebar UI
                     if (data.current_project_context) {
                         setActiveProject(data.current_project_context);
                     }
@@ -191,7 +231,7 @@
 
             return (
                 <div class="dashboard">
-                    {/* Security Telemetry & System Auditing Sidebar */}
+                    {/* Security Telemetry Sidebar */}
                     <div class="sidebar">
                         <h3>🔒 System Audit Logs</h3>
                         <p style={{fontSize:'0.85rem', color:'var(--text-dark)'}}>Operational context tracking pipeline logs:</p>
@@ -223,8 +263,15 @@
                         <div class="chat-messages">
                             {messages.map((m, idx) => (
                                 <div key={idx} class="msg-wrapper">
-                                    <div class={`message ${m.sender}`}>
+                                    <div id={m.id} class={`message ${m.sender}`}>
                                         {m.text}
+                                        {m.isDocument && (
+                                            <div class="export-btn-container">
+                                                <button onClick={() => downloadAsPDF(m.id)} class="pdf-btn">
+                                                    📄 Download PDF Report
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
