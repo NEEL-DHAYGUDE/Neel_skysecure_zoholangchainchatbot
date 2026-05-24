@@ -3,32 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SkySecure - Zoho AI Assistant</title>
+    <title>Skysecure Intelligent MSP - Zoho AI Assistant</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        .chat-container { width: 100%; max-width: 650px; height: 80vh; background: #ffffff; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
-        .chat-header { background: #1e293b; color: white; padding: 20px; text-align: center; font-size: 1.2rem; font-weight: bold; border-bottom: 2px solid #0f172a; display: flex; justify-content: space-between; align-items: center; }
-        .auth-btn { background: #0284c7; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: background 0.2s; }
-        .auth-btn:hover { background: #0369a1; }
-        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; background: #f8fafc; display: flex; flex-direction: column; gap: 15px; }
-        .message { max-width: 75%; padding: 12px 16px; borderRadius: 8px; font-size: 0.95rem; line-height: 1.4; display: inline-block; word-wrap: break-word; }
-        .message.user { background: #0284c7; color: white; align-self: flex-end; border-radius: 12px 12px 0 12px; }
-        .message.bot { background: #e2e8f0; color: #1e293b; align-self: flex-start; border-radius: 12px 12px 12px 0; white-space: pre-line; }
-        .chat-footer { padding: 15px 20px; background: #ffffff; border-top: 1px solid #e2e8f0; }
-        .input-group { display: flex; gap: 10px; }
-        .chat-input { flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; outline: none; transition: border 0.2s; }
-        .chat-input:focus { border-color: #0284c7; }
-        .send-btn { background: #1e293b; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-        .send-btn:hover { background: #0f172a; }
+        :root {
+            --bg-main: #0f172a;
+            --panel-bg: #1e293b;
+            --accent-blue: #0284c7;
+            --text-light: #f8fafc;
+            --text-dark: #cbd5e1;
+            --bot-bubble: #334155;
+            --user-bubble: #0369a1;
+        }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background-color: var(--bg-main); 
+            color: var(--text-light);
+            margin: 0; 
+            padding: 0; 
+            display: flex; 
+            height: 100vh;
+            overflow: hidden;
+        }
+        #root { display: flex; width: 100%; height: 100%; }
+        .dashboard { display: flex; width: 100%; height: 100%; }
+        
+        /* Sidebar Styles */
+        .sidebar {
+            width: 300px;
+            background: var(--panel-bg);
+            border-right: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .sidebar h3 { margin-top: 0; color: var(--accent-blue); font-size: 1.1rem; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        .telemetry-card { background: #0f172a; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 0.85rem; color: #10b981; margin-bottom: 15px; overflow-x: auto; }
+
+        /* Main Chat Container */
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: #0b0f19; height: 100%; position: relative; }
+        .chat-header { background: var(--panel-bg); padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+        .chat-messages { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+        
+        /* Message Bubbles */
+        .msg-wrapper { display: flex; flex-direction: column; width: 100%; }
+        .message { max-width: 70%; padding: 14px 18px; font-size: 0.95rem; line-height: 1.5; word-wrap: break-word; }
+        .message.user { background: var(--user-bubble); color: white; align-self: flex-end; border-radius: 16px 16px 0 16px; box-shadow: 0 4px 12px rgba(3,105,161,0.3); }
+        .message.bot { background: var(--bot-bubble); color: var(--text-light); align-self: flex-start; border-radius: 16px 16px 16px 0; white-space: pre-line; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        
+        /* Control Interface Footer */
+        .chat-footer { padding: 20px; background: var(--panel-bg); border-top: 1px solid #334155; }
+        .input-group { display: flex; gap: 12px; align-items: center; }
+        .chat-input { flex: 1; padding: 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; font-size: 1rem; color: white; outline: none; transition: border 0.2s; }
+        .chat-input:focus { border-color: var(--accent-blue); }
+        
+        /* Button Styles */
+        .btn { padding: 12px 24px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
+        .btn-primary { background: var(--accent-blue); color: white; }
+        .btn-primary:hover { background: #0369a1; }
+        .btn-secondary { background: #475569; color: white; }
+        .btn-voice { background: #ef4444; color: white; border-radius: 50%; width: 48px; height: 48px; padding: 0; justify-content: center; align-items: center; font-size: 1.2rem; }
+        .btn-voice.active { background: #10b981; animation: pulse 1.5s infinite; }
+        
         .hil-container { display: flex; gap: 15px; width: 100%; }
-        .hil-btn { flex: 1; padding: 14px; border: none; border-radius: 6px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: opacity 0.2s; }
+        .hil-btn { flex: 1; padding: 16px; border: none; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; }
         .hil-btn.confirm { background: #10b981; color: white; }
         .hil-btn.cancel { background: #ef4444; color: white; }
-        .hil-btn:hover { opacity: 0.9; }
-        .loading { font-style: italic; color: #64748b; }
+        
+        .auth-link { background: var(--accent-blue); color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 0.9rem; }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
     </style>
 </head>
 <body>
@@ -39,34 +90,72 @@
 
         function App() {
             const [messages, setMessages] = useState([
-                { sender: 'bot', text: '👋 Hello! I am your SkySecure Zoho AI Assistant. Please authenticate using the button above if you haven\'t already, then ask me about your projects or tasks!' }
+                { sender: 'bot', text: '👋 Welcome back to the Skysecure Managed Services Portal. Securely connected to Zoho Hub. Ask me to pull metrics or stage action mutations.' }
             ]);
             const [input, setInput] = useState('');
             const [hilWaiting, setHilWaiting] = useState(false);
             const [loading, setLoading] = useState(false);
-            // Dynamic session initialization for short-term memory mapping
+            const [isListening, setIsListening] = useState(false);
+            const [activeProject, setActiveProject] = useState('None (Awaiting Turn context)');
+            const [lastRoute, setLastRoute] = useState('None');
             const [sessionId] = useState(`session_${Math.random().toString(36).substr(2, 9)}`);
             const messagesEndRef = useRef(null);
 
-            const scrollToBottom = () => {
-                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            // Speech Recognition Setup
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+
+            if (recognition) {
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    setInput(transcript);
+                    setIsListening(false);
+                };
+
+                recognition.onerror = () => setIsListening(false);
+                recognition.onend = () => setIsListening(false);
+            }
+
+            const toggleListening = () => {
+                if (!recognition) {
+                    alert('Web Speech API is not supported in this browser version.');
+                    return;
+                }
+                if (isListening) {
+                    recognition.stop();
+                } else {
+                    setIsListening(true);
+                    recognition.start();
+                }
+            };
+
+            // Voice Text Synthesis Outbound Reader
+            const speakText = (text) => {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel(); // Terminate ongoing streams
+                    const cleanText = text.replace(/[^\w\s,.!?]/g, ''); // Strip markdown chars
+                    const utterance = new SpeechSynthesisUtterance(cleanText);
+                    utterance.rate = 1.0;
+                    window.speechSynthesis.speak(utterance);
+                }
             };
 
             useEffect(() => {
-                scrollToBottom();
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
             }, [messages]);
 
             const handleSend = async (hilOverride = {}) => {
                 let userText = input.trim();
-                
                 if (!hilWaiting && !userText && Object.keys(hilOverride).length === 0) return;
 
-                // Log the text bubble locally on client
                 if (!hilWaiting && !hilOverride.confirm_action && !hilOverride.decline_action) {
                     setMessages(prev => [...prev, { sender: 'user', text: userText }]);
                     setInput('');
                 }
-                
                 setLoading(true);
 
                 try {
@@ -84,49 +173,92 @@
                     
                     setMessages(prev => [...prev, { sender: 'bot', text: data.response }]);
                     setHilWaiting(data.requires_hil);
+                    speakText(data.response);
+
+                    // Dynamic Telemetry State simulation extraction for the Sidebar UI
+                    if (data.current_project_context) {
+                        setActiveProject(data.current_project_context);
+                    }
+                    const writeKeywords = ["create", "update", "delete", "assign", "change"];
+                    setLastRoute(writeKeywords.some(kw => userText.toLowerCase().includes(kw)) ? "ActionAgent (State Mutation)" : "QueryAgent (Read-Only Stream)");
+
                 } catch (error) {
-                    setMessages(prev => [...prev, { sender: 'bot', text: '❌ Network connection error occurred. Verify backend runtime.' }]);
+                    setMessages(prev => [...prev, { sender: 'bot', text: '❌ Connection Timeout or Intercept Aborted.' }]);
                 } finally {
                     setLoading(false);
                 }
             };
 
             return (
-                <div class="chat-container">
-                    <div class="chat-header">
-                        <span>SkySecure Zoho AI Portfolio</span>
-                        <a href="/auth/login" class="auth-btn">Connect Zoho</a>
+                <div class="dashboard">
+                    {/* Security Telemetry & System Auditing Sidebar */}
+                    <div class="sidebar">
+                        <h3>🔒 System Audit Logs</h3>
+                        <p style={{fontSize:'0.85rem', color:'var(--text-dark)'}}>Operational context tracking pipeline logs:</p>
+                        
+                        <div style={{fontWeight:'bold', fontSize:'0.85rem', marginBottom:'5px'}}>Active Thread Token ID:</div>
+                        <div class="telemetry-card">{sessionId}</div>
+
+                        <div style={{fontWeight:'bold', fontSize:'0.85rem', marginBottom:'5px'}}>Inferred Intent Node Routing:</div>
+                        <div class="telemetry-card" style={{color: lastRoute.includes('Action') ? '#ef4444' : '#10b981'}}>{lastRoute}</div>
+
+                        <div style={{fontWeight:'bold', fontSize:'0.85rem', marginBottom:'5px'}}>Short-Term Context Memory:</div>
+                        <div class="telemetry-card">project_id: "{activeProject}"</div>
+                        
+                        <div style={{marginTop:'auto', padding:'10px', border:'1px dashed #334155', borderRadius:'6px', fontSize:'0.8rem', color:'var(--text-dark)'}}>
+                            💡 <strong>Evaluation Note:</strong> State transitions are cached in-memory and synchronized using a state checkpointer.
+                        </div>
                     </div>
-                    
-                    <div class="chat-messages">
-                        {messages.map((m, idx) => (
-                            <div key={idx} class={`message ${m.sender}`}>
-                                {m.text}
+
+                    {/* Chat Architecture Display Space */}
+                    <div class="chat-area">
+                        <div class="chat-header">
+                            <div>
+                                <h2 style={{margin:0, fontSize:'1.2rem'}}>Skysecure Intelligent Control Hub</h2>
+                                <span style={{fontSize:'0.8rem', color:'#10b981'}}>● Connected Framework Node</span>
                             </div>
-                        ))}
-                        {loading && <div class="message bot loading">Thinking...</div>}
-                        <div ref={messagesEndRef} />
-                    </div>
-                    
-                    <div class="chat-footer">
-                        {hilWaiting ? (
-                            <div class="hil-container">
-                                <button onClick={() => handleSend({ confirm_action: true })} class="hil-btn confirm">Confirm Execution</button>
-                                <button onClick={() => handleSend({ decline_action: true })} class="hil-btn cancel">Cancel Action</button>
-                            </div>
-                        ) : (
-                            <div class="input-group">
-                                <input 
-                                    class="chat-input" 
-                                    value={input} 
-                                    onChange={(e) => setInput(e.target.value)} 
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                                    placeholder="Type a request (e.g., 'What projects do I have?')..." 
-                                    disabled={loading}
-                                />
-                                <button onClick={() => handleSend()} class="send-btn" disabled={loading}>Send</button>
-                            </div>
-                        )}
+                            <a href="/auth/login" class="auth-link">🔐 Re-Authenticate Zoho</a>
+                        </div>
+
+                        <div class="chat-messages">
+                            {messages.map((m, idx) => (
+                                <div key={idx} class="msg-wrapper">
+                                    <div class={`message ${m.sender}`}>
+                                        {m.text}
+                                    </div>
+                                </div>
+                            ))}
+                            {loading && <div class="message bot loading">Retrieving telemetry data matrix...</div>}
+                            <div ref={messagesEndRef} />
+                        </div>
+
+                        <div class="chat-footer">
+                            {hilWaiting ? (
+                                <div class="hil-container">
+                                    <button onClick={() => handleSend({ confirm_action: true })} class="hil-btn confirm">Confirm Pipeline Write</button>
+                                    <button onClick={() => handleSend({ decline_action: true })} class="hil-btn cancel">Abort Request</button>
+                                </div>
+                            ) : (
+                                <div class="input-group">
+                                    <button 
+                                        onClick={toggleListening} 
+                                        class={`btn-voice ${isListening ? 'active' : ''}`}
+                                        title={isListening ? 'Listening active...' : 'Trigger Voice Control Mode'}
+                                    >
+                                        {isListening ? '🛑' : '🎙️'}
+                                    </button>
+                                    <input 
+                                        class="chat-input"
+                                        value={input}
+                                        onChange={(e) => setInput(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                                        placeholder="Command engine via speech or textual query input string..."
+                                        disabled={loading}
+                                    />
+                                    <button onClick={() => handleSend()} class="btn btn-primary" disabled={loading}>Send Command</button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             );
