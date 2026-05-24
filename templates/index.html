@@ -7,6 +7,7 @@
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
             --bg-main: #0f172a;
@@ -46,17 +47,38 @@
         /* Main Chat Container */
         .chat-area { flex: 1; display: flex; flex-direction: column; background: #0b0f19; height: 100%; position: relative; }
         .chat-header { background: var(--panel-bg); padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
-        .chat-messages { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+        .chat-messages { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
         
         /* Message Bubbles */
         .msg-wrapper { display: flex; flex-direction: column; width: 100%; }
-        .message { max-width: 75%; padding: 14px 18px; font-size: 0.95rem; line-height: 1.5; word-wrap: break-word; position: relative; }
+        .message { max-width: 80%; padding: 14px 20px; font-size: 0.95rem; line-height: 1.5; word-wrap: break-word; position: relative; }
         .message.user { background: var(--user-bubble); color: white; align-self: flex-end; border-radius: 16px 16px 0 16px; box-shadow: 0 4px 12px rgba(3,105,161,0.3); }
-        .message.bot { background: var(--bot-bubble); color: var(--text-light); align-self: flex-start; border-radius: 16px 16px 16px 0; white-space: pre-line; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .message.bot { background: var(--bot-bubble); color: var(--text-light); align-self: flex-start; border-radius: 16px 16px 16px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
         
-        /* Report Export Button style inside chat bubbles */
-        .export-btn-container { margin-top: 10px; display: flex; justify-content: flex-start; }
-        .pdf-btn { background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
+        /* Rendered HTML Styling inside Bot Bubble (No More Raw # or *) */
+        .message.bot h1, .message.bot h2, .message.bot h3 { color: #38bdf8; margin-top: 10px; margin-bottom: 5px; font-size: 1.1rem; }
+        .message.bot ul, .message.bot ol { padding-left: 20px; margin: 5px 0; }
+        .message.bot li { margin-bottom: 4px; }
+        .message.bot p { margin: 6px 0; }
+
+        /* Telemetry Execution Flow Box Style */
+        .flow-box {
+            margin-top: 8px;
+            background: #1e293b;
+            border-left: 3px solid #10b981;
+            padding: 10px 14px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            max-width: 80%;
+            align-self: flex-start;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .flow-title { font-weight: bold; color: #10b981; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+
+        /* Report Export Button style */
+        .export-btn-container { margin-top: 12px; display: flex; justify-content: flex-start; }
+        .pdf-btn { background: #10b981; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
         .pdf-btn:hover { background: #059669; }
 
         /* Control Interface Footer */
@@ -96,12 +118,14 @@
                 left: 0; 
                 top: 0; 
                 width: 100%; 
-                padding: 30px;
-                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                padding: 40px;
+                font-family: Arial, sans-serif;
                 line-height: 1.6;
             }
-            .pdf-btn, .chat-header, .chat-footer, .sidebar { display: none !important; }
-            h2, h3 { color: #1e293b !important; border-bottom: 2px solid #cbd5e1 !important; padding-bottom: 5px; }
+            .pdf-btn, .flow-box, .chat-header, .chat-footer, .sidebar { display: none !important; }
+            h1, h2, h3 { color: #0f172a !important; border-bottom: 2px solid #cbd5e1 !important; padding-bottom: 6px; margin-top: 20px; }
+            ul, ol { padding-left: 25px; }
+            li { margin-bottom: 6px; }
         }
     </style>
 </head>
@@ -113,7 +137,11 @@
 
         function App() {
             const [messages, setMessages] = useState([
-                { sender: 'bot', text: '👋 Welcome back to the Skysecure Managed Services Portal. Securely connected to Zoho Hub. Ask me to pull metrics, format report documents, or stage action mutations.' }
+                { 
+                    sender: 'bot', 
+                    text: 'Welcome back to the Skysecure Managed Services Portal. Securely connected to Zoho Hub. Ask me to pull metrics, format report documents, or stage action mutations.',
+                    flowInfo: { agent: 'SystemInitializer', tools: 'None', status: 'Idle' }
+                }
             ]);
             const [input, setInput] = useState('');
             const [hilWaiting, setHilWaiting] = useState(false);
@@ -169,16 +197,41 @@
                 messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
             }, [messages]);
 
-            // Function to dynamically trigger a clean print save pipeline target window
             const downloadAsPDF = (elementId) => {
                 const element = document.getElementById(elementId);
                 if (!element) return;
                 
-                // Temporarily flag the bubble for printing view containment isolation rules
                 element.classList.add('print-target-section');
                 window.print();
                 element.classList.remove('print-target-section');
             };
+            const emailReport = async (textContent) => {
+    const targetEmail = prompt("Enter the recipient's email address:");
+    if (!targetEmail) return; // User cancelled
+
+    setLoading(true);
+    try {
+        const response = await fetch('/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                target_email: targetEmail,
+                report_content: textContent,
+                subject: "Skysecure Automated Task Report"
+            })
+        });
+
+        if (response.ok) {
+            alert(`✅ Report successfully routed to ${targetEmail}`);
+        } else {
+            alert("❌ Failed to send email. Check backend configuration.");
+        }
+    } catch (error) {
+        alert("❌ Network error while attempting to send email.");
+    } finally {
+        setLoading(false);
+    }
+};
 
             const handleSend = async (hilOverride = {}) => {
                 let userText = input.trim();
@@ -203,13 +256,21 @@
 
                     const data = await response.json();
                     
-                    // Identify if the text represents a formatted document overview
-                    const containsDocument = data.response.toLowerCase().includes('document:') || data.response.toLowerCase().includes('**1.');
+                    const containsDocument = data.response.toLowerCase().includes('document:') || data.response.toLowerCase().includes('1.');
+                    const isMutation = ["create", "update", "delete", "assign", "change"].some(kw => userText.toLowerCase().includes(kw));
+                    
+                    // Construct live LangGraph runtime execution metadata parameters
+                    const currentFlow = {
+                        agent: isMutation ? 'ActionAgent' : 'QueryAgent',
+                        tools: isMutation ? 'create_task, update_task, delete_task' : 'list_projects, list_tasks, get_task_utilisation',
+                        status: data.requires_hil ? 'PAUSED (HIL Intercept Hook active)' : 'SUCCESS (Graph Run Terminated)'
+                    };
 
                     setMessages(prev => [...prev, { 
                         sender: 'bot', 
                         text: data.response,
                         isDocument: containsDocument,
+                        flowInfo: currentFlow,
                         id: `msg_${Date.now()}` 
                     }]);
                     
@@ -219,8 +280,7 @@
                     if (data.current_project_context) {
                         setActiveProject(data.current_project_context);
                     }
-                    const writeKeywords = ["create", "update", "delete", "assign", "change"];
-                    setLastRoute(writeKeywords.some(kw => userText.toLowerCase().includes(kw)) ? "ActionAgent (State Mutation)" : "QueryAgent (Read-Only Stream)");
+                    setLastRoute(isMutation ? "ActionAgent (State Mutation)" : "QueryAgent (Read-Only Stream)");
 
                 } catch (error) {
                     setMessages(prev => [...prev, { sender: 'bot', text: '❌ Connection Timeout or Intercept Aborted.' }]);
@@ -233,7 +293,7 @@
                 <div class="dashboard">
                     {/* Security Telemetry Sidebar */}
                     <div class="sidebar">
-                        <h3>🔒 System Audit Logs</h3>
+                        <h3>INFO AND LOGS</h3>
                         <p style={{fontSize:'0.85rem', color:'var(--text-dark)'}}>Operational context tracking pipeline logs:</p>
                         
                         <div style={{fontWeight:'bold', fontSize:'0.85rem', marginBottom:'5px'}}>Active Thread Token ID:</div>
@@ -254,7 +314,7 @@
                     <div class="chat-area">
                         <div class="chat-header">
                             <div>
-                                <h2 style={{margin:0, fontSize:'1.2rem'}}>Skysecure Intelligent Control Hub</h2>
+                                <h2 style={{margin:0, fontSize:'1.2rem'}}>ZOHO BASED ACCOUNT MANAGEMNENT CHATBOT</h2>
                                 <span style={{fontSize:'0.8rem', color:'#10b981'}}>● Connected Framework Node</span>
                             </div>
                             <a href="/auth/login" class="auth-link">🔐 Re-Authenticate Zoho</a>
@@ -262,20 +322,42 @@
 
                         <div class="chat-messages">
                             {messages.map((m, idx) => (
-                                <div key={idx} class="msg-wrapper">
-                                    <div id={m.id} class={`message ${m.sender}`}>
-                                        {m.text}
-                                        {m.isDocument && (
-                                            <div class="export-btn-container">
-                                                <button onClick={() => downloadAsPDF(m.id)} class="pdf-btn">
-                                                    📄 Download PDF Report
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
+                                <div key={idx} style={{ display: 'flex', flexDirection: 'column' }}>
+                                    {/* Text Chat Bubble */}
+                                    <div 
+                                        id={m.id} 
+                                        class={`message ${m.sender}`}
+                                        dangerouslySetInnerHTML={{ __html: m.sender === 'bot' ? marked.parse(m.text) : m.text }}
+                                    />
+                                    
+                                    {/* Conditional LangGraph Trace Execution Flow Card */}
+                                    {m.sender === 'bot' && m.flowInfo && (
+                                        <div class="flow-box">
+                                            <div class="flow-title">⚙️ LangGraph Execution Trace</div>
+                                            <div><strong>Active Component:</strong> {m.flowInfo.agent}</div>
+                                            <div><strong>Connected Bindings:</strong> <span style={{fontFamily:'monospace', color:'#38bdf8'}}>{m.flowInfo.tools}</span></div>
+                                            <div><strong>Pipeline Lifespan Status:</strong> {m.flowInfo.status}</div>
+                                        </div>
+                                    )}
+
+                                    {/* Conditional Export Trigger buttons */}
+{m.isDocument && (
+    <div class="export-btn-container" style={{ alignSelf: 'flex-start', gap: '10px' }}>
+        <button onClick={() => downloadAsPDF(m.id)} class="pdf-btn">
+            📄 Download Clean PDF
+        </button>
+        <button 
+            onClick={() => emailReport(m.text)} 
+            class="pdf-btn" 
+            style={{ backgroundColor: '#0284c7' }} // Distinguish it with the accent blue
+        >
+            📧 Email Report
+        </button>
+    </div>
+)}
                                 </div>
                             ))}
-                            {loading && <div class="message bot loading">Retrieving telemetry data matrix...</div>}
+                            {loading && <div class="message bot">Retrieving telemetry data matrix...</div>}
                             <div ref={messagesEndRef} />
                         </div>
 
@@ -302,7 +384,7 @@
                                         placeholder="Command engine via speech or textual query input string..."
                                         disabled={loading}
                                     />
-                                    <button onClick={() => handleSend()} class="btn btn-primary" disabled={loading}>Send Command</button>
+                                    <button onClick={() => handleSend()} class="send-btn" disabled={loading}>Send Command</button>
                                 </div>
                             )}
                         </div>
