@@ -1,3 +1,7 @@
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from pydantic import BaseModel
 from fastapi import FastAPI, Depends, HTTPException, Query, Response
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -134,3 +138,33 @@ async def chat_endpoint(request: ChatRequest):
         "response": last_bot_reply,
         "requires_hil": is_hil_waiting
     }
+class EmailRequest(BaseModel):
+    target_email: str
+    report_content: str
+    subject: str = "Skysecure Zoho Assistant - Generated Report"
+
+@app.post("/send-email")
+async def send_email_report(request: EmailRequest):
+    try:
+        # Create the email package
+        msg = MIMEMultipart()
+        msg['From'] = settings.SMTP_EMAIL
+        msg['To'] = request.target_email
+        msg['Subject'] = request.subject
+
+        # Attach the report content (you can format this as HTML or plain text)
+        msg.attach(MIMEText(request.report_content, 'plain'))
+
+        # Connect to Google's SMTP server securely
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(settings.SMTP_EMAIL, settings.SMTP_PASSWORD)
+        
+        # Dispatch and close
+        server.send_message(msg)
+        server.quit()
+        
+        return {"status": "success", "message": f"Report securely delivered to {request.target_email}"}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to dispatch email: {str(e)}")
