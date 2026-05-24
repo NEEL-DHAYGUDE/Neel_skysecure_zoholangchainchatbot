@@ -1,0 +1,4 @@
+ZOHO_CLIENT_ID=your_zoho_client_id_here
+ZOHO_CLIENT_SECRET=your_zoho_client_secret_here
+ZOHO_REDIRECT_URI=https://cola-barterer-broadside.ngrok-free.dev/auth/callback
+MISTRAL_API_KEY=your_mistral_key_here
