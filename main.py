@@ -9,7 +9,7 @@ import os
 from config import settings
 from database import get_db, UserTokenStore
 from clients.zoho_client import ZohoClient
-from ai.graph import compiled_agent_graph # Note: Ensure this matches your compiled variable name (e.g., compiled_chatbot_graph)
+from ai.graph import compiled_agent_graph # Note: Ensure this matches your compiled variable name (e.g., compiled_agent_graph)
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
 
@@ -112,12 +112,12 @@ async def chat_endpoint(request: ChatRequest):
     config = {"configurable": {"thread_id": request.session_id}}
     
     if request.confirm_action:
-        compiled_chatbot_graph.update_state(config, {"action_approved": True})
-        response_state = compiled_chatbot_graph.invoke(None, config)
+        compiled_agent_graph.update_state(config, {"action_approved": True})
+        response_state = compiled_agent_graph.invoke(None, config)
         return {"response": response_state["messages"][-1].content, "requires_hil": False}
         
     if request.decline_action:
-        compiled_chatbot_graph.update_state(config, {"next_action_pending": None, "action_approved": False})
+        compiled_agent_graph.update_state(config, {"next_action_pending": None, "action_approved": False})
         return {"response": "❌ Operation safely cancelled by the user.", "requires_hil": False}
 
     initial_inputs = {
@@ -126,7 +126,7 @@ async def chat_endpoint(request: ChatRequest):
         "action_approved": False
     }
     
-    output_state = compiled_chatbot_graph.invoke(initial_inputs, config)
+    output_state = compiled_agent_graph.invoke(initial_inputs, config)
     last_bot_reply = output_state["messages"][-1].content
     is_hil_waiting = output_state.get("next_action_pending") is not None
     
