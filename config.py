@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     ZOHO_CLIENT_SECRET: str
     ZOHO_REDIRECT_URI: str
     MISTRAL_API_KEY: str
+    SMTP_EMAIL: str = os.getenv("SMTP_EMAIL")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD")
     
     # Regional datacenter settings (.in vs .com)
     ZOHO_ACCOUNTS_URL: str = "https://accounts.zoho.in"
