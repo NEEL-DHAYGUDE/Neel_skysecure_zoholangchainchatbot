@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkySecure - Zoho AI Assistant</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .chat-container { width: 100%; max-width: 650px; height: 80vh; background: #ffffff; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
+        .chat-header { background: #1e293b; color: white; padding: 20px; text-align: center; font-size: 1.2rem; font-weight: bold; border-bottom: 2px solid #0f172a; display: flex; justify-content: space-between; align-items: center; }
+        .auth-btn { background: #0284c7; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: background 0.2s; }
+        .auth-btn:hover { background: #0369a1; }
+        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; background: #f8fafc; display: flex; flex-direction: column; gap: 15px; }
+        .message { max-width: 75%; padding: 12px 16px; borderRadius: 8px; font-size: 0.95rem; line-height: 1.4; display: inline-block; word-wrap: break-word; }
+        .message.user { background: #0284c7; color: white; align-self: flex-end; border-radius: 12px 12px 0 12px; }
+        .message.bot { background: #e2e8f0; color: #1e293b; align-self: flex-start; border-radius: 12px 12px 12px 0; white-space: pre-line; }
+        .chat-footer { padding: 15px 20px; background: #ffffff; border-top: 1px solid #e2e8f0; }
+        .input-group { display: flex; gap: 10px; }
+        .chat-input { flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; outline: none; transition: border 0.2s; }
+        .chat-input:focus { border-color: #0284c7; }
+        .send-btn { background: #1e293b; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .send-btn:hover { background: #0f172a; }
+        .hil-container { display: flex; gap: 15px; width: 100%; }
+        .hil-btn { flex: 1; padding: 14px; border: none; border-radius: 6px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: opacity 0.2s; }
+        .hil-btn.confirm { background: #10b981; color: white; }
+        .hil-btn.cancel { background: #ef4444; color: white; }
+        .hil-btn:hover { opacity: 0.9; }
+        .loading { font-style: italic; color: #64748b; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        function App() {
+            const [messages, setMessages] = useState([
+                { sender: 'bot', text: '👋 Hello! I am your SkySecure Zoho AI Assistant. Please authenticate using the button above if you haven\'t already, then ask me about your projects or tasks!' }
+            ]);
+            const [input, setInput] = useState('');
+            const [hilWaiting, setHilWaiting] = useState(false);
+            const [loading, setLoading] = useState(false);
+            // Dynamic session initialization for short-term memory mapping
+            const [sessionId] = useState(`session_${Math.random().toString(36).substr(2, 9)}`);
+            const messagesEndRef = useRef(null);
+
+            const scrollToBottom = () => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            };
+
+            useEffect(() => {
+                scrollToBottom();
+            }, [messages]);
+
+            const handleSend = async (hilOverride = {}) => {
+                let userText = input.trim();
+                
+                if (!hilWaiting && !userText && Object.keys(hilOverride).length === 0) return;
+
+                // Log the text bubble locally on client
+                if (!hilWaiting && !hilOverride.confirm_action && !hilOverride.decline_action) {
+                    setMessages(prev => [...prev, { sender: 'user', text: userText }]);
+                    setInput('');
+                }
+                
+                setLoading(true);
+
+                try {
+                    const response = await fetch('/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_input: userText,
+                            session_id: sessionId,
+                            ...hilOverride
+                        })
+                    });
+
+                    const data = await response.json();
+                    
+                    setMessages(prev => [...prev, { sender: 'bot', text: data.response }]);
+                    setHilWaiting(data.requires_hil);
+                } catch (error) {
+                    setMessages(prev => [...prev, { sender: 'bot', text: '❌ Network connection error occurred. Verify backend runtime.' }]);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <span>SkySecure Zoho AI Portfolio</span>
+                        <a href="/auth/login" class="auth-btn">Connect Zoho</a>
+                    </div>
+                    
+                    <div class="chat-messages">
+                        {messages.map((m, idx) => (
+                            <div key={idx} class={`message ${m.sender}`}>
+                                {m.text}
+                            </div>
+                        ))}
+                        {loading && <div class="message bot loading">Thinking...</div>}
+                        <div ref={messagesEndRef} />
+                    </div>
+                    
+                    <div class="chat-footer">
+                        {hilWaiting ? (
+                            <div class="hil-container">
+                                <button onClick={() => handleSend({ confirm_action: true })} class="hil-btn confirm">Confirm Execution</button>
+                                <button onClick={() => handleSend({ decline_action: true })} class="hil-btn cancel">Cancel Action</button>
+                            </div>
+                        ) : (
+                            <div class="input-group">
+                                <input 
+                                    class="chat-input" 
+                                    value={input} 
+                                    onChange={(e) => setInput(e.target.value)} 
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                                    placeholder="Type a request (e.g., 'What projects do I have?')..." 
+                                    disabled={loading}
+                                />
+                                <button onClick={() => handleSend()} class="send-btn" disabled={loading}>Send</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
