@@ -44,8 +44,6 @@ def create_task(user_id: str, project_id: str, task_name: str) -> str:
     """Create a brand new task inside a target Zoho Project portfolio."""
     return f"Successfully executed creation for task: '{task_name}' in project {project_id}"
 
-# Note: You can expand additional tools (list_tasks, get_task_details, etc.) here as needed.
-
 # ==========================================
 # 3. OBJECT-ORIENTED ROUTER & AGENTS
 # ==========================================
@@ -71,33 +69,29 @@ class QueryAgent:
         self.model = model
 
     def run(self, state: AgentState) -> Dict[str, Any]:
-        last_message = state["messages"][-1].content
+        last_message = state["messages"][-1].content.lower()
         
-        # Short-term context injection logic
-        context_prompt = ""
-        if state.get("current_project_id"):
-            context_prompt = f"\n(Context: The user is actively viewing Project ID: {state['current_project_id']})"
-
-        system_instruction = (
-            "You are the Query Agent for Zoho Projects. You handle data read tasks. "
-            "Formulate answers clearly based on facts provided." + context_prompt
-        )
-        
-        messages = [AIMessage(content=system_instruction)] + list(state["messages"])
-        model_with_tools = self.model.bind_tools([list_projects])
-        response = model_with_tools.invoke(messages)
-        
-        # Simple evaluation flow handling read matching
-        if "project" in last_message.lower():
-            tool_output = list_projects.invoke({"user_id": state["user_id"]})
+        # Intercept "project" keywords to serve the demo payload without breaking message order pairs
+        if "project" in last_message:
             return {
                 "messages": [
-                    response, 
                     AIMessage(content="Here are your active Zoho Projects:\n1. 🚀 **API Integration Hub** (ID: p_101)\n2. 🎨 **UI Redesign Phase 2** (ID: p_102)")
                 ],
-                "current_project_id": "p_101"  # Short-term memory set!
+                "current_project_id": "p_101"  # Contextual short-term memory stored!
             }
             
+        # Fallback system prompt for standard contextual read queries
+        system_instruction = (
+            "You are the Query Agent for Zoho Projects. You handle data read tasks. "
+            "Formulate answers clearly based on facts provided."
+        )
+        if state.get("current_project_id"):
+            system_instruction += f" (Context: The user is actively viewing Project ID: {state['current_project_id']})"
+
+        # Construct an alternating sequence starting with the instructions as a fake AI entry
+        formatted_messages = [AIMessage(content=system_instruction)] + list(state["messages"])
+        response = self.model.invoke(formatted_messages)
+        
         return {"messages": [response]}
 
 
@@ -107,14 +101,10 @@ class ActionAgent:
         self.model = model
 
     def run(self, state: AgentState) -> Dict[str, Any]:
-        # Human-in-the-Loop Verification Interception check
+        # Human-in-the-Loop Verification Interception pass
         if state.get("action_approved") is True:
-            pending = state.get("next_action_pending", {})
-            action_details = pending.get("details", "Requested Mutation")
-            
-            # Action approved by user clicking the confirmation button!
             return {
-                "messages": [AIMessage(content=f"✅ **Execution Confirmed.** Transaction authorized. Action successfully committed to Zoho Projects.")],
+                "messages": [AIMessage(content="✅ **Execution Confirmed.** Transaction authorized. Action successfully committed to Zoho Projects.")],
                 "next_action_pending": None,
                 "action_approved": False
             }
@@ -136,18 +126,17 @@ class ActionAgent:
 # 4. GRAPH STATE COMPILATION PIPELINE
 # ==========================================
 
-# Instantiate your class instances
 supervisor = IntentSupervisor(llm)
 query_agent = QueryAgent(llm)
 action_agent = ActionAgent(llm)
 
 workflow = StateGraph(AgentState)
 
-# Attach class methods directly as nodes
+# Attach node executors
 workflow.add_node("query_agent", query_agent.run)
 workflow.add_node("action_agent", action_agent.run)
 
-# Build out routing conditions
+# Assign conditional routing layout
 workflow.set_conditional_entry_point(
     supervisor.route,
     {
@@ -159,8 +148,8 @@ workflow.set_conditional_entry_point(
 workflow.add_edge("query_agent", END)
 workflow.add_edge("action_agent", END)
 
-# In-memory thread checkpointing engine to bypass SQLite version discrepancies 
+# In-memory checkpointer engine to ensure version stability 
 memory_checkpointer = MemorySaver()
 
-# This compiles perfectly to match main.py's import statement!
+# Exported variable matches main.py perfectly
 compiled_agent_graph = workflow.compile(checkpointer=memory_checkpointer)
